@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .gradient-bg {
+    @apply bg-gradient-to-br from-primary-800 via-primary-700 to-primary-500;
+  }
+  
+  .card {
+    @apply bg-white dark:bg-gray-800 rounded-lg shadow-md;
+  }
+  
+  .btn-primary {
+    @apply bg-gradient-to-r from-primary-800 to-primary-500 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition-all duration-200;
+  }
+  
+  .btn-accent {
+    @apply bg-accent-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-accent-600 hover:shadow-lg transition-all duration-200;
+  }
+}
+
