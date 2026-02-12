@@ -1,6 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/auth/LoginPage';
 import SignUpPage from './pages/auth/SignUpPage';
+import TrainerDashboard from './pages/trainer/TrainerDashboard';
+import ClientDashboard from './pages/client/ClientDashboard';
 
 function App() {
   return (
@@ -9,6 +11,8 @@ function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignUpPage />} />
+          <Route path="/trainer/dashboard" element={<TrainerDashboard />} />
+          <Route path="/client/dashboard" element={<ClientDashboard />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>
       </div>
