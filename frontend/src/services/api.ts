@@ -1,5 +1,13 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
+async function handleResponse(response: Response) {
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'An error occurred' }));
+    throw new Error(error.message || `HTTP ${response.status}: ${response.statusText}`);
+  }
+  return response.json();
+}
+
 export const api = {
   get: async (endpoint: string, token?: string) => {
     const headers: HeadersInit = {
@@ -15,7 +23,7 @@ export const api = {
       headers,
     });
     
-    return response.json();
+    return handleResponse(response);
   },
   
   post: async (endpoint: string, data: any, token?: string) => {
@@ -33,7 +41,7 @@ export const api = {
       body: JSON.stringify(data),
     });
     
-    return response.json();
+    return handleResponse(response);
   },
   
   put: async (endpoint: string, data: any, token?: string) => {
@@ -51,7 +59,7 @@ export const api = {
       body: JSON.stringify(data),
     });
     
-    return response.json();
+    return handleResponse(response);
   },
   
   delete: async (endpoint: string, token?: string) => {
@@ -68,6 +76,6 @@ export const api = {
       headers,
     });
     
-    return response.json();
+    return handleResponse(response);
   },
 };
