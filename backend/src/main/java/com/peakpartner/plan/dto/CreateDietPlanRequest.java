@@ -38,5 +38,6 @@ public class CreateDietPlanRequest {
         private BigDecimal carbsGrams;
         private BigDecimal fatGrams;
         private String alternatives;
+        private String instructions;
     }
 }

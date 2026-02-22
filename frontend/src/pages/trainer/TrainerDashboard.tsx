@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
-import type { Profile, ApiResponse, SessionResponse, AssessmentResponse, ConnectionResponse } from '../../types';
+import type { Profile, ApiResponse, SessionResponse, AssessmentResponse, ConnectionResponse, RescheduleResponse } from '../../types';
 
 export default function TrainerDashboard() {
   const navigate = useNavigate();
@@ -16,6 +16,7 @@ export default function TrainerDashboard() {
   const [upcomingSessions, setUpcomingSessions] = useState<SessionResponse[]>([]);
   const [pendingReviews, setPendingReviews] = useState<AssessmentResponse[]>([]);
   const [connections, setConnections] = useState<ConnectionResponse[]>([]);
+  const [pendingReschedules, setPendingReschedules] = useState<RescheduleResponse[]>([]);
 
   // Book session form
   const [showBookForm, setShowBookForm] = useState(false);
@@ -33,15 +34,23 @@ export default function TrainerDashboard() {
     }
   }, [user]);
 
+  // Auto-sync: poll every 30 seconds
+  useEffect(() => {
+    if (!user?.token) return;
+    const interval = setInterval(() => fetchAll(user.token), 30000);
+    return () => clearInterval(interval);
+  }, [user]);
+
   const fetchAll = async (token: string) => {
     try {
-      const [profileRes, countRes, todayRes, upcomingRes, assessRes, connRes] = await Promise.allSettled([
+      const [profileRes, countRes, todayRes, upcomingRes, assessRes, connRes, rescheduleRes] = await Promise.allSettled([
         api.get('/profiles/me', token),
         api.get('/connections/count', token),
         api.get('/sessions/today', token),
         api.get('/sessions/upcoming-list', token),
         api.get('/assessments', token),
         api.get('/connections?status=ACCEPTED', token),
+        api.get('/sessions/reschedule/pending', token),
       ]);
 
       if (profileRes.status === 'fulfilled' && profileRes.value.success) {
@@ -65,6 +74,9 @@ export default function TrainerDashboard() {
         if (connRes.value.data.length > 0 && !bookConnectionId) {
           setBookConnectionId(connRes.value.data[0].id);
         }
+      }
+      if (rescheduleRes.status === 'fulfilled' && rescheduleRes.value.success) {
+        setPendingReschedules(Array.isArray(rescheduleRes.value.data) ? rescheduleRes.value.data : []);
       }
     } catch (error) {
       console.error('Dashboard fetch error:', error);
@@ -141,8 +153,29 @@ export default function TrainerDashboard() {
         reason,
       }, user.token);
       alert('Reschedule request sent! Waiting for confirmation.');
+      fetchAll(user.token);
     } catch (err: any) {
       alert(err.message || 'Failed to request reschedule');
+    }
+  };
+
+  const acceptReschedule = async (rescheduleId: string) => {
+    if (!user?.token) return;
+    try {
+      await api.put(`/sessions/reschedule/${rescheduleId}/accept`, {}, user.token);
+      fetchAll(user.token);
+    } catch (err: any) {
+      alert(err.message || 'Failed to accept reschedule');
+    }
+  };
+
+  const declineReschedule = async (rescheduleId: string) => {
+    if (!user?.token) return;
+    try {
+      await api.put(`/sessions/reschedule/${rescheduleId}/decline`, {}, user.token);
+      fetchAll(user.token);
+    } catch (err: any) {
+      alert(err.message || 'Failed to decline reschedule');
     }
   };
 
@@ -217,6 +250,43 @@ export default function TrainerDashboard() {
               >
                 Review
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Pending Reschedule Requests */}
+        {pendingReschedules.length > 0 && (
+          <div className="p-4 rounded-xl" style={{ background: '#fef3c7', border: '1.5px solid #fcd34d' }}>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xl">🔔</span>
+              <p className="font-semibold text-sm" style={{ color: '#92400e' }}>
+                {pendingReschedules.length} Reschedule Request{pendingReschedules.length > 1 ? 's' : ''}
+              </p>
+            </div>
+            <div className="space-y-2">
+              {pendingReschedules.map(rr => (
+                <div key={rr.id} className="p-3 rounded-lg bg-white" style={{ border: '1px solid #fde68a' }}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold" style={{ color: '#1e293b' }}>
+                        {rr.requestedByName} wants to reschedule
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ color: '#92400e' }}>
+                        New time: {new Date(rr.proposedDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} {rr.proposedStartTime} – {rr.proposedEndTime}
+                      </p>
+                      {rr.reason && <p className="text-xs mt-0.5 italic" style={{ color: '#78716c' }}>Reason: {rr.reason}</p>}
+                    </div>
+                    <div className="flex gap-1.5">
+                      <button onClick={() => acceptReschedule(rr.id)} className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors" style={{ background: '#dcfce7', color: '#166534' }}>
+                        Accept
+                      </button>
+                      <button onClick={() => declineReschedule(rr.id)} className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors" style={{ background: '#fee2e2', color: '#991b1b' }}>
+                        Decline
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}

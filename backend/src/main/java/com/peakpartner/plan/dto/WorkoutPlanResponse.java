@@ -63,6 +63,7 @@ public class WorkoutPlanResponse {
         private String weightSuggestion;
         private Integer restSeconds;
         private String notes;
+        private String instructions;
         private Integer sortOrder;
 
         public static ExerciseResponse fromEntity(PlanExercise e) {
@@ -74,6 +75,7 @@ public class WorkoutPlanResponse {
             r.setWeightSuggestion(e.getWeightSuggestion());
             r.setRestSeconds(e.getRestSeconds());
             r.setNotes(e.getNotes());
+            r.setInstructions(e.getInstructions());
             r.setSortOrder(e.getSortOrder());
             return r;
         }

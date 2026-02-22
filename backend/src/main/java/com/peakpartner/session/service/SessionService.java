@@ -201,6 +201,11 @@ public class SessionService {
                 .map(RescheduleResponse::fromEntity).collect(Collectors.toList());
     }
 
+    public List<RescheduleResponse> getPendingRescheduleRequestsForUser(UUID userId) {
+        return rescheduleRequestRepository.findPendingForUser(userId, RescheduleStatus.PENDING).stream()
+                .map(RescheduleResponse::fromEntity).collect(Collectors.toList());
+    }
+
     @Transactional
     public SessionResponse completeSession(UUID trainerId, UUID sessionId) {
         SessionBooking booking = sessionBookingRepository.findById(sessionId)

@@ -30,13 +30,16 @@ export default function ClientDailyLog() {
   const [showMealForm, setShowMealForm] = useState(false);
   const [mlName, setMlName] = useState('');
   const [mlCompliance, setMlCompliance] = useState<MealCompliance>('ON_PLAN');
-  const [mlPhotoUrl, setMlPhotoUrl] = useState('');
+  const [mlPhotoFile, setMlPhotoFile] = useState<File | null>(null);
+  const [mlPhotoPreview, setMlPhotoPreview] = useState<string>('');
+  const [mlPhotoUploading, setMlPhotoUploading] = useState(false);
   const [mlItems, setMlItems] = useState('');
   const [mlCalories, setMlCalories] = useState<number>(0);
   const [mlProtein, setMlProtein] = useState<number>(0);
   const [mlCarbs, setMlCarbs] = useState<number>(0);
   const [mlFat, setMlFat] = useState<number>(0);
   const [mlNotes, setMlNotes] = useState('');
+  const [mlSaving, setMlSaving] = useState(false);
 
   useEffect(() => {
     if (user?.token) fetchConnections();
@@ -44,6 +47,13 @@ export default function ClientDailyLog() {
 
   useEffect(() => {
     if (user?.token && selectedConnectionId) fetchLogs();
+  }, [user, selectedConnectionId, logDate]);
+
+  // Auto-sync: poll every 30 seconds
+  useEffect(() => {
+    if (!user?.token || !selectedConnectionId) return;
+    const interval = setInterval(() => fetchLogs(), 30000);
+    return () => clearInterval(interval);
   }, [user, selectedConnectionId, logDate]);
 
   const fetchConnections = async () => {
@@ -97,15 +107,61 @@ export default function ClientDailyLog() {
     }
   };
 
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      alert('Photo size must be under 5MB. Please choose a smaller image.');
+      e.target.value = '';
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file.');
+      e.target.value = '';
+      return;
+    }
+    setMlPhotoFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setMlPhotoPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const removePhoto = () => {
+    setMlPhotoFile(null);
+    setMlPhotoPreview('');
+  };
+
   const createMealLog = async () => {
     if (!user?.token || !selectedConnectionId) return;
+    if (!mlName.trim()) {
+      alert('Please enter a meal name');
+      return;
+    }
+    setMlSaving(true);
     try {
+      let photoUrl: string | null = null;
+      if (mlPhotoFile) {
+        setMlPhotoUploading(true);
+        try {
+          const uploadRes = await api.uploadFile('/uploads/photo', mlPhotoFile, 'file', undefined, user.token);
+          if (uploadRes.success) {
+            photoUrl = uploadRes.data.url;
+          }
+        } catch (uploadErr: any) {
+          alert('Failed to upload photo: ' + (uploadErr.message || 'Unknown error'));
+          setMlPhotoUploading(false);
+          setMlSaving(false);
+          return;
+        }
+        setMlPhotoUploading(false);
+      }
       await api.post('/plans/meal-logs', {
         connectionId: selectedConnectionId,
         logDate,
         mealName: mlName,
         compliance: mlCompliance,
-        photoUrl: mlPhotoUrl || null,
+        photoUrl,
         itemsConsumed: mlItems || null,
         estimatedCalories: mlCalories || null,
         proteinGrams: mlProtein || null,
@@ -116,8 +172,12 @@ export default function ClientDailyLog() {
       setShowMealForm(false);
       resetMealForm();
       fetchLogs();
-    } catch (error) {
+    } catch (error: any) {
+      alert('Failed to log meal: ' + (error.message || 'Unknown error'));
       console.error('Failed to log meal:', error);
+    } finally {
+      setMlPhotoUploading(false);
+      setMlSaving(false);
     }
   };
 
@@ -127,9 +187,9 @@ export default function ClientDailyLog() {
   };
 
   const resetMealForm = () => {
-    setMlName(''); setMlCompliance('ON_PLAN'); setMlPhotoUrl('');
-    setMlItems(''); setMlCalories(0); setMlProtein(0); setMlCarbs(0);
-    setMlFat(0); setMlNotes('');
+    setMlName(''); setMlCompliance('ON_PLAN'); setMlPhotoFile(null);
+    setMlPhotoPreview(''); setMlItems(''); setMlCalories(0); setMlProtein(0);
+    setMlCarbs(0); setMlFat(0); setMlNotes('');
   };
 
   if (loading) {
@@ -308,7 +368,25 @@ export default function ClientDailyLog() {
                     <option value="SKIPPED">Skipped ⏭️</option>
                   </select>
                 </div>
-                <input value={mlPhotoUrl} onChange={e => setMlPhotoUrl(e.target.value)} placeholder="Photo URL (optional)" className="input" />
+                <div>
+                  <label className="text-xs font-semibold text-slate-500 mb-1 block">Meal Photo (optional, max 5MB)</label>
+                  {mlPhotoPreview ? (
+                    <div className="relative">
+                      <img src={mlPhotoPreview} alt="Meal preview" className="w-full max-h-48 object-cover rounded-lg" />
+                      <button
+                        onClick={removePhoto}
+                        className="absolute top-2 right-2 bg-red-500 text-white w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold hover:bg-red-600 transition-colors shadow-md"
+                      >×</button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors">
+                      <span className="text-2xl mb-1">📷</span>
+                      <span className="text-xs text-slate-500 font-medium">Tap to upload photo</span>
+                      <span className="text-[10px] text-slate-400 mt-0.5">JPEG, PNG up to 5MB</span>
+                      <input type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" />
+                    </label>
+                  )}
+                </div>
                 <textarea value={mlItems} onChange={e => setMlItems(e.target.value)} placeholder="Items consumed (e.g. Rice, chicken breast, salad)" className="input" rows={2} />
                 <div className="grid grid-cols-4 gap-2">
                   <div>
@@ -330,8 +408,11 @@ export default function ClientDailyLog() {
                 </div>
                 <textarea value={mlNotes} onChange={e => setMlNotes(e.target.value)} placeholder="Notes (optional)" className="input" rows={2} />
                 <div className="flex gap-2">
-                  <button onClick={createMealLog} className="btn-primary text-sm px-4 py-2">Save</button>
-                  <button onClick={() => { setShowMealForm(false); resetMealForm(); }} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+                  <button onClick={createMealLog} disabled={mlSaving} className="btn-primary text-sm px-4 py-2 disabled:opacity-50 flex items-center gap-2">
+                    {mlSaving && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                    {mlPhotoUploading ? 'Uploading photo...' : mlSaving ? 'Saving...' : 'Save'}
+                  </button>
+                  <button onClick={() => { setShowMealForm(false); resetMealForm(); }} disabled={mlSaving} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
                 </div>
               </div>
             )}
@@ -361,7 +442,7 @@ export default function ClientDailyLog() {
                       </div>
                     </div>
                     {log.photoUrl && (
-                      <img src={log.photoUrl} alt="Meal" className="mt-3 w-full max-h-48 object-cover rounded-lg" />
+                      <img src={log.photoUrl.startsWith('/uploads') ? `http://localhost:8080/api${log.photoUrl}` : log.photoUrl} alt="Meal" className="mt-3 w-full max-h-48 object-cover rounded-lg" />
                     )}
                     {log.itemsConsumed && <p className="text-xs text-slate-600 mt-2">{log.itemsConsumed}</p>}
                     {log.estimatedCalories && (

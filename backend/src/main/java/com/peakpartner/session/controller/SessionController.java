@@ -126,4 +126,11 @@ public class SessionController {
         List<RescheduleResponse> requests = sessionService.getRescheduleRequestsForSession(id);
         return ResponseEntity.ok(ApiResponse.success("Reschedule requests retrieved", requests));
     }
+
+    @GetMapping("/reschedule/pending")
+    public ResponseEntity<ApiResponse<List<RescheduleResponse>>> getPendingRescheduleRequests(
+            @AuthenticationPrincipal Profile currentUser) {
+        List<RescheduleResponse> requests = sessionService.getPendingRescheduleRequestsForUser(currentUser.getId());
+        return ResponseEntity.ok(ApiResponse.success("Pending reschedule requests", requests));
+    }
 }

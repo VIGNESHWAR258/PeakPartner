@@ -44,7 +44,7 @@ export default function TrainerClientManage() {
   const [wpDuration, setWpDuration] = useState('WEEKLY');
   const [wpStartDate, setWpStartDate] = useState('');
   const [wpEndDate, setWpEndDate] = useState('');
-  const [wpDays, setWpDays] = useState<Array<{ dayNumber: number; dayName: string; focusArea: string; exercises: Array<{ exerciseName: string; sets: number; reps: string; weightSuggestion: string; restSeconds: number; notes: string }> }>>([]);
+  const [wpDays, setWpDays] = useState<Array<{ dayNumber: number; dayName: string; focusArea: string; exercises: Array<{ exerciseName: string; sets: number; reps: string; weightSuggestion: string; restSeconds: number; notes: string; instructions: string }> }>>([]);
 
   // Diet plan form
   const [showDietForm, setShowDietForm] = useState(false);
@@ -56,7 +56,7 @@ export default function TrainerClientManage() {
   const [dpProtein, setDpProtein] = useState<number>(0);
   const [dpCarbs, setDpCarbs] = useState<number>(0);
   const [dpFat, setDpFat] = useState<number>(0);
-  const [dpMeals, setDpMeals] = useState<Array<{ mealName: string; mealTime: string; items: Array<{ foodName: string; quantity: string; calories: number; proteinGrams: number; carbsGrams: number; fatGrams: number; alternatives: string }> }>>([]);
+  const [dpMeals, setDpMeals] = useState<Array<{ mealName: string; mealTime: string; items: Array<{ foodName: string; quantity: string; calories: number; proteinGrams: number; carbsGrams: number; fatGrams: number; alternatives: string; instructions: string }> }>>([]);
 
   // Trainer exercise logging
   const [exerciseLogDate, setExerciseLogDate] = useState(new Date().toISOString().split('T')[0]);
@@ -74,6 +74,13 @@ export default function TrainerClientManage() {
     if (user?.token && connectionId) {
       fetchData();
     }
+  }, [user, connectionId]);
+
+  // Auto-sync: poll every 30 seconds
+  useEffect(() => {
+    if (!user?.token || !connectionId) return;
+    const interval = setInterval(() => fetchData(), 30000);
+    return () => clearInterval(interval);
   }, [user, connectionId]);
 
   const fetchData = async () => {
@@ -296,6 +303,7 @@ export default function TrainerClientManage() {
       await api.put(`/plans/meal-logs/${logId}/verify`, {}, user.token);
       showToast('success', 'Meal log verified');
       fetchData();
+      fetchDailyView();
     } catch (error: any) {
       showToast('error', error.message || 'Failed to verify');
     }
@@ -319,7 +327,7 @@ export default function TrainerClientManage() {
 
   const addExercise = (dayIndex: number) => {
     const updated = [...wpDays];
-    updated[dayIndex].exercises.push({ exerciseName: '', sets: 3, reps: '10', weightSuggestion: '', restSeconds: 60, notes: '' });
+    updated[dayIndex].exercises.push({ exerciseName: '', sets: 3, reps: '10', weightSuggestion: '', restSeconds: 60, notes: '', instructions: '' });
     setWpDays(updated);
   };
 
@@ -329,7 +337,7 @@ export default function TrainerClientManage() {
 
   const addMealItem = (mealIndex: number) => {
     const updated = [...dpMeals];
-    updated[mealIndex].items.push({ foodName: '', quantity: '', calories: 0, proteinGrams: 0, carbsGrams: 0, fatGrams: 0, alternatives: '' });
+    updated[mealIndex].items.push({ foodName: '', quantity: '', calories: 0, proteinGrams: 0, carbsGrams: 0, fatGrams: 0, alternatives: '', instructions: '' });
     setDpMeals(updated);
   };
 
@@ -663,7 +671,8 @@ export default function TrainerClientManage() {
                       </div>
                       {/* Exercises */}
                       {day.exercises.map((ex, ei) => (
-                        <div key={ei} className="grid grid-cols-6 gap-2 items-center">
+                        <div key={ei} className="space-y-1.5">
+                          <div className="grid grid-cols-6 gap-2 items-center">
                           <input
                             value={ex.exerciseName}
                             onChange={e => { const u = [...wpDays]; u[di].exercises[ei].exerciseName = e.target.value; setWpDays(u); }}
@@ -690,6 +699,13 @@ export default function TrainerClientManage() {
                             className="input text-xs"
                           />
                           <button onClick={() => { const u = [...wpDays]; u[di].exercises.splice(ei, 1); setWpDays(u); }} className="text-red-500 text-xs">✕</button>
+                          </div>
+                          <input
+                            value={ex.instructions || ''}
+                            onChange={e => { const u = [...wpDays]; u[di].exercises[ei].instructions = e.target.value; setWpDays(u); }}
+                            placeholder="Instructions (e.g. Keep back straight, 2 sec pause at bottom)"
+                            className="input text-xs"
+                          />
                         </div>
                       ))}
                       <button onClick={() => addExercise(di)} className="text-xs text-blue-600 font-semibold">+ Add Exercise</button>
@@ -744,9 +760,12 @@ export default function TrainerClientManage() {
                             {day.exercises && day.exercises.length > 0 && (
                               <div className="mt-2 space-y-1">
                                 {day.exercises.map((ex, i) => (
-                                  <p key={i} className="text-xs text-slate-600">
-                                    • {ex.exerciseName} — {ex.sets}×{ex.reps} {ex.weightSuggestion && `@ ${ex.weightSuggestion}`}
-                                  </p>
+                                  <div key={i}>
+                                    <p className="text-xs text-slate-600">
+                                      • {ex.exerciseName} — {ex.sets}×{ex.reps} {ex.weightSuggestion && `@ ${ex.weightSuggestion}`}
+                                    </p>
+                                    {ex.instructions && <p className="text-xs ml-3 italic" style={{ color: '#6366f1' }}>📝 {ex.instructions}</p>}
+                                  </div>
                                 ))}
                               </div>
                             )}
@@ -825,13 +844,16 @@ export default function TrainerClientManage() {
                         />
                       </div>
                       {meal.items.map((item, ii) => (
-                        <div key={ii} className="grid grid-cols-7 gap-1.5 items-center">
+                        <div key={ii} className="space-y-1.5">
+                          <div className="grid grid-cols-7 gap-1.5 items-center">
                           <input value={item.foodName} onChange={e => { const u = [...dpMeals]; u[mi].items[ii].foodName = e.target.value; setDpMeals(u); }} placeholder="Food" className="input text-xs col-span-2" />
                           <input value={item.quantity} onChange={e => { const u = [...dpMeals]; u[mi].items[ii].quantity = e.target.value; setDpMeals(u); }} placeholder="Qty" className="input text-xs" />
                           <input type="number" value={item.calories || ''} onChange={e => { const u = [...dpMeals]; u[mi].items[ii].calories = Number(e.target.value); setDpMeals(u); }} placeholder="Cal" className="input text-xs" />
                           <input type="number" value={item.proteinGrams || ''} onChange={e => { const u = [...dpMeals]; u[mi].items[ii].proteinGrams = Number(e.target.value); setDpMeals(u); }} placeholder="P(g)" className="input text-xs" />
                           <input type="number" value={item.carbsGrams || ''} onChange={e => { const u = [...dpMeals]; u[mi].items[ii].carbsGrams = Number(e.target.value); setDpMeals(u); }} placeholder="C(g)" className="input text-xs" />
                           <button onClick={() => { const u = [...dpMeals]; u[mi].items.splice(ii, 1); setDpMeals(u); }} className="text-red-500 text-xs">✕</button>
+                          </div>
+                          <input value={item.instructions || ''} onChange={e => { const u = [...dpMeals]; u[mi].items[ii].instructions = e.target.value; setDpMeals(u); }} placeholder="Instructions (e.g. Steam, not fry; add olive oil)" className="input text-xs" />
                         </div>
                       ))}
                       <button onClick={() => addMealItem(mi)} className="text-xs text-blue-600 font-semibold">+ Add Item</button>
@@ -888,9 +910,12 @@ export default function TrainerClientManage() {
                             {meal.items && meal.items.length > 0 && (
                               <div className="mt-1 space-y-0.5">
                                 {meal.items.map((item, i) => (
-                                  <p key={i} className="text-xs text-slate-600">
-                                    • {item.foodName} {item.quantity && `— ${item.quantity}`} {item.calories && `(${item.calories} cal)`}
-                                  </p>
+                                  <div key={i}>
+                                    <p className="text-xs text-slate-600">
+                                      • {item.foodName} {item.quantity && `— ${item.quantity}`} {item.calories && `(${item.calories} cal)`}
+                                    </p>
+                                    {item.instructions && <p className="text-xs ml-3 italic" style={{ color: '#6366f1' }}>📝 {item.instructions}</p>}
+                                  </div>
                                 ))}
                               </div>
                             )}
@@ -1123,7 +1148,7 @@ export default function TrainerClientManage() {
                                         )}
                                       </div>
                                       {log.photoUrl && (
-                                        <img src={log.photoUrl} alt="Meal" className="w-full max-h-48 object-cover rounded-lg mb-2" />
+                                        <img src={log.photoUrl.startsWith('/uploads') ? `http://localhost:8080/api${log.photoUrl}` : log.photoUrl} alt="Meal" className="w-full max-h-48 object-cover rounded-lg mb-2" />
                                       )}
                                       {log.itemsConsumed && <p className="text-xs text-slate-600">Items: {log.itemsConsumed}</p>}
                                       {log.estimatedCalories && (
@@ -1159,7 +1184,7 @@ export default function TrainerClientManage() {
                               <span className={`tag mt-1 ${log.compliance === 'ON_PLAN' ? 'tag-green' : log.compliance === 'PARTIAL' ? 'tag-orange' : 'tag-blue'}`}>
                                 {log.compliance?.replace(/_/g, ' ')}
                               </span>
-                              {log.photoUrl && <img src={log.photoUrl} alt="Meal" className="mt-2 w-full max-h-40 object-cover rounded-lg" />}
+                              {log.photoUrl && <img src={log.photoUrl.startsWith('/uploads') ? `http://localhost:8080/api${log.photoUrl}` : log.photoUrl} alt="Meal" className="mt-2 w-full max-h-40 object-cover rounded-lg" />}
                               {log.itemsConsumed && <p className="text-xs text-slate-600 mt-1">{log.itemsConsumed}</p>}
                             </div>
                           ))}

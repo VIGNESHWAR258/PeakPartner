@@ -26,7 +26,9 @@ A full-stack mobile-first web application that bridges the gap between gym train
 - **Session Management**: Cancel with reason, reschedule with approval workflow
 - **Assessments**: Create multi-question assessments (text, single/multi-choice, scale) for clients
 - **Client Daily Logs**: View plan vs actual comparison for exercises and meals with compliance tracking
-- **Meal Verification**: Verify client meal photo uploads
+- **Meal Verification**: Verify client meal photo uploads with instant UI feedback
+- **Exercise & Meal Instructions**: Add per-exercise and per-meal-item instructions for clients
+- **Auto-Sync**: Dashboard auto-refreshes every 30 seconds for real-time updates
 
 ### For Clients
 - **Trainer Discovery**: Browse and connect with trainers by specialization
@@ -34,7 +36,11 @@ A full-stack mobile-first web application that bridges the gap between gym train
 - **Plan-Based Meal Logging**: Log meals from diet plan with required photo upload and compliance status
 - **Session Booking**: Book available trainer time slots
 - **Session Actions**: Request reschedule or cancel with reason
+- **Reschedule Requests**: View and respond to trainer reschedule requests (accept/decline)
 - **Contact Trainer**: Quick call, WhatsApp, or email buttons for connected trainers
+- **Meal Photo Upload**: Upload meal photos from gallery (5MB max) with preview
+- **Exercise & Meal Instructions**: View trainer-provided instructions for each exercise and meal item
+- **Auto-Sync**: Dashboard auto-refreshes every 30 seconds for real-time updates
 - **Assessments**: Complete trainer-assigned assessments
 - **Profile Management**: Edit personal details, fitness goals, and contact info
 
@@ -55,7 +61,7 @@ PeakPartner/
 │   │   └── common/            # DTOs, exception handling
 │   ├── src/main/resources/
 │   │   ├── application.yml
-│   │   └── db/migration/      # Flyway migrations (V1-V5)
+│   │   └── db/migration/      # Flyway migrations (V1-V6)
 │   ├── pom.xml
 │   └── Dockerfile
 │
@@ -133,7 +139,7 @@ docker-compose down     # Stop services
 
 ## 📊 Database Schema
 
-PostgreSQL with Flyway migrations (V1–V5). Key tables:
+PostgreSQL with Flyway migrations (V1–V6). Key tables:
 
 | Table | Purpose |
 |-------|---------|
@@ -143,9 +149,9 @@ PostgreSQL with Flyway migrations (V1–V5). Key tables:
 | `session_bookings` | Session scheduling (in-person/virtual) |
 | `reschedule_requests` | Session reschedule approval workflow |
 | `workout_plans` | Workout plan structure with status lifecycle |
-| `plan_days` / `plan_exercises` | Day-by-day workout breakdown with exercises |
+| `plan_days` / `plan_exercises` | Day-by-day workout breakdown with exercises and instructions |
 | `exercise_logs` | Exercise tracking with PR detection |
-| `diet_plans` / `diet_plan_meals` / `diet_meal_items` | Meal planning with macros |
+| `diet_plans` / `diet_plan_meals` / `diet_meal_items` | Meal planning with macros and instructions |
 | `meal_logs` | Meal compliance tracking with photo uploads |
 | `assessments` | Multi-question client assessments |
 
@@ -184,6 +190,9 @@ JWT-based authentication with Spring Security:
 - `GET /api/sessions/upcoming-list` — All upcoming sessions
 - `PUT /api/sessions/{id}/cancel` — Cancel with reason
 - `POST /api/sessions/{id}/reschedule` — Request reschedule
+- `GET /api/sessions/reschedule/pending` — Pending reschedule requests for current user
+- `PUT /api/sessions/reschedule/{id}/accept` — Accept reschedule
+- `PUT /api/sessions/reschedule/{id}/decline` — Decline reschedule
 
 **Workout Plans**
 - `POST /api/plans/workout` — Create workout plan
@@ -198,9 +207,12 @@ JWT-based authentication with Spring Security:
 **Exercise & Meal Logs**
 - `POST /api/plans/exercise-logs` — Log exercise
 - `GET /api/plans/exercise-logs?connectionId=&date=` — Get exercise logs
-- `POST /api/plans/meal-logs` — Log meal (with photo)
+- `POST /api/plans/meal-logs` — Log meal (with photo upload from gallery)
 - `GET /api/plans/meal-logs?connectionId=&date=` — Get meal logs
 - `PUT /api/plans/meal-logs/{id}/verify` — Trainer verify meal
+
+**File Upload**
+- `POST /api/upload` — Upload file (meal photos, max 5MB)
 
 **Assessments**
 - `POST /api/assessments` — Create assessment

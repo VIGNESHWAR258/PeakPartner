@@ -42,6 +42,9 @@ public class DietMealItem {
     @Column(columnDefinition = "TEXT")
     private String alternatives;
 
+    @Column(columnDefinition = "TEXT")
+    private String instructions;
+
     @Column(name = "sort_order")
     private Integer sortOrder = 0;
 }

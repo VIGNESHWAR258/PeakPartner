@@ -66,6 +66,7 @@ public class DietPlanResponse {
         private BigDecimal carbsGrams;
         private BigDecimal fatGrams;
         private String alternatives;
+        private String instructions;
 
         public static MealItemResponse fromEntity(DietMealItem item) {
             MealItemResponse r = new MealItemResponse();
@@ -77,6 +78,7 @@ public class DietPlanResponse {
             r.setCarbsGrams(item.getCarbsGrams());
             r.setFatGrams(item.getFatGrams());
             r.setAlternatives(item.getAlternatives());
+            r.setInstructions(item.getInstructions());
             return r;
         }
     }

@@ -37,5 +37,6 @@ public class CreateWorkoutPlanRequest {
         private String weightSuggestion;
         private Integer restSeconds;
         private String notes;
+        private String instructions;
     }
 }

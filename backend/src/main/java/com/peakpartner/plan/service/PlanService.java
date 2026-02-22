@@ -81,6 +81,7 @@ public class PlanService {
                                 .weightSuggestion(exInput.getWeightSuggestion())
                                 .restSeconds(exInput.getRestSeconds())
                                 .notes(exInput.getNotes())
+                                .instructions(exInput.getInstructions())
                                 .sortOrder(order.getAndIncrement())
                                 .build();
                     }).collect(Collectors.toList());
@@ -215,6 +216,7 @@ public class PlanService {
                                 .carbsGrams(itemInput.getCarbsGrams())
                                 .fatGrams(itemInput.getFatGrams())
                                 .alternatives(itemInput.getAlternatives())
+                                .instructions(itemInput.getInstructions())
                                 .sortOrder(itemOrder.getAndIncrement())
                                 .build();
                     }).collect(Collectors.toList());

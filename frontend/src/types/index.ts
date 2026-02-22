@@ -157,6 +157,7 @@ export interface PlanExercise {
   weightSuggestion?: string;
   restSeconds?: number;
   notes?: string;
+  instructions?: string;
   sortOrder?: number;
 }
 
@@ -198,6 +199,7 @@ export interface MealItem {
   carbsGrams?: number;
   fatGrams?: number;
   alternatives?: string;
+  instructions?: string;
 }
 
 export interface Meal {

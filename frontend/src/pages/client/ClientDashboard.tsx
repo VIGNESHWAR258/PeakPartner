@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
-import type { Profile, ApiResponse, AssessmentResponse, WorkoutPlanResponse, DietPlanResponse, SessionResponse, ConnectionResponse } from '../../types';
+import type { Profile, ApiResponse, AssessmentResponse, WorkoutPlanResponse, DietPlanResponse, SessionResponse, ConnectionResponse, RescheduleResponse } from '../../types';
 
 export default function ClientDashboard() {
   const navigate = useNavigate();
@@ -15,7 +15,9 @@ export default function ClientDashboard() {
   const [activeWorkout, setActiveWorkout] = useState<WorkoutPlanResponse | null>(null);
   const [activeDiet, setActiveDiet] = useState<DietPlanResponse | null>(null);
   const [upcomingSession, setUpcomingSession] = useState<SessionResponse | null>(null);
+  const [upcomingSessions, setUpcomingSessions] = useState<SessionResponse[]>([]);
   const [todaySessions, setTodaySessions] = useState<SessionResponse[]>([]);
+  const [pendingReschedules, setPendingReschedules] = useState<RescheduleResponse[]>([]);
   const [connections, setConnections] = useState<ConnectionResponse[]>([]);
 
   // Book session form
@@ -34,9 +36,16 @@ export default function ClientDashboard() {
     }
   }, [user]);
 
+  // Auto-sync: poll every 30 seconds
+  useEffect(() => {
+    if (!user?.token) return;
+    const interval = setInterval(() => fetchAll(user.token), 30000);
+    return () => clearInterval(interval);
+  }, [user]);
+
   const fetchAll = async (token: string) => {
     try {
-      const [profileRes, assessRes, workoutRes, dietRes, upcomingRes, todayRes, connRes] = await Promise.allSettled([
+      const [profileRes, assessRes, workoutRes, dietRes, upcomingRes, todayRes, connRes, upcomingListRes, rescheduleRes] = await Promise.allSettled([
         api.get('/profiles/me', token),
         api.get('/assessments', token),
         api.get('/plans/workout?role=client', token),
@@ -44,6 +53,8 @@ export default function ClientDashboard() {
         api.get('/sessions/upcoming', token),
         api.get('/sessions/today', token),
         api.get('/connections?status=ACCEPTED', token),
+        api.get('/sessions/upcoming-list', token),
+        api.get('/sessions/reschedule/pending', token),
       ]);
 
       if (profileRes.status === 'fulfilled' && profileRes.value.success) {
@@ -77,6 +88,12 @@ export default function ClientDashboard() {
         if (connRes.value.data.length > 0 && !bookConnectionId) {
           setBookConnectionId(connRes.value.data[0].id);
         }
+      }
+      if (upcomingListRes.status === 'fulfilled' && upcomingListRes.value.success) {
+        setUpcomingSessions(Array.isArray(upcomingListRes.value.data) ? upcomingListRes.value.data : []);
+      }
+      if (rescheduleRes.status === 'fulfilled' && rescheduleRes.value.success) {
+        setPendingReschedules(Array.isArray(rescheduleRes.value.data) ? rescheduleRes.value.data : []);
       }
     } catch (error) {
       console.error('Dashboard fetch error:', error);
@@ -143,8 +160,29 @@ export default function ClientDashboard() {
         reason,
       }, user.token);
       alert('Reschedule request sent! Waiting for confirmation.');
+      fetchAll(user.token);
     } catch (err: any) {
       alert(err.message || 'Failed to request reschedule');
+    }
+  };
+
+  const acceptReschedule = async (rescheduleId: string) => {
+    if (!user?.token) return;
+    try {
+      await api.put(`/sessions/reschedule/${rescheduleId}/accept`, {}, user.token);
+      fetchAll(user.token);
+    } catch (err: any) {
+      alert(err.message || 'Failed to accept reschedule');
+    }
+  };
+
+  const declineReschedule = async (rescheduleId: string) => {
+    if (!user?.token) return;
+    try {
+      await api.put(`/sessions/reschedule/${rescheduleId}/decline`, {}, user.token);
+      fetchAll(user.token);
+    } catch (err: any) {
+      alert(err.message || 'Failed to decline reschedule');
     }
   };
 
@@ -333,6 +371,9 @@ export default function ClientDashboard() {
                         ex.restSeconds && `${ex.restSeconds}s rest`,
                       ].filter(Boolean).join(' • ') || 'No details'}
                     </p>
+                    {ex.instructions && (
+                      <p className="text-xs mt-1 italic" style={{ color: '#6366f1' }}>📝 {ex.instructions}</p>
+                    )}
                   </div>
                 </div>
               ))}
@@ -364,9 +405,14 @@ export default function ClientDashboard() {
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {meal.items.map((item, j) => (
-                      <span key={j} className="text-xs px-2 py-0.5 rounded-full" style={{ background: '#ecfdf5', color: '#047857' }}>
-                        {item.foodName}{item.quantity ? ` (${item.quantity})` : ''}
-                      </span>
+                      <div key={j} className="text-xs">
+                        <span className="px-2 py-0.5 rounded-full" style={{ background: '#ecfdf5', color: '#047857' }}>
+                          {item.foodName}{item.quantity ? ` (${item.quantity})` : ''}
+                        </span>
+                        {item.instructions && (
+                          <p className="text-xs mt-0.5 ml-2 italic" style={{ color: '#6366f1' }}>📝 {item.instructions}</p>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -411,6 +457,81 @@ export default function ClientDashboard() {
             </div>
           </div>
         )}
+
+        {/* Pending Reschedule Requests */}
+        {pendingReschedules.length > 0 && (
+          <div className="p-4 rounded-xl" style={{ background: '#fef3c7', border: '1.5px solid #fcd34d' }}>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xl">🔔</span>
+              <p className="font-semibold text-sm" style={{ color: '#92400e' }}>
+                {pendingReschedules.length} Reschedule Request{pendingReschedules.length > 1 ? 's' : ''}
+              </p>
+            </div>
+            <div className="space-y-2">
+              {pendingReschedules.map(rr => (
+                <div key={rr.id} className="p-3 rounded-lg bg-white" style={{ border: '1px solid #fde68a' }}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold" style={{ color: '#1e293b' }}>
+                        {rr.requestedByName} wants to reschedule
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ color: '#92400e' }}>
+                        New time: {new Date(rr.proposedDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} {rr.proposedStartTime} – {rr.proposedEndTime}
+                      </p>
+                      {rr.reason && <p className="text-xs mt-0.5 italic" style={{ color: '#78716c' }}>Reason: {rr.reason}</p>}
+                    </div>
+                    <div className="flex gap-1.5">
+                      <button onClick={() => acceptReschedule(rr.id)} className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors" style={{ background: '#dcfce7', color: '#166534' }}>
+                        Accept
+                      </button>
+                      <button onClick={() => declineReschedule(rr.id)} className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors" style={{ background: '#fee2e2', color: '#991b1b' }}>
+                        Decline
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Upcoming Sessions */}
+        {(() => {
+          const futureOnly = upcomingSessions.filter(s => !todaySessions.some(ts => ts.id === s.id));
+          if (futureOnly.length === 0) return null;
+          return (
+            <div className="card p-5">
+              <h2 className="section-title mb-3">Upcoming Sessions</h2>
+              <div className="space-y-2">
+                {futureOnly.slice(0, 5).map(s => (
+                  <div key={s.id} className="flex items-center justify-between p-3 rounded-lg" style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}>
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg">{s.sessionType === 'IN_PERSON' ? '🏢' : '💻'}</span>
+                      <div>
+                        <p className="text-sm font-semibold" style={{ color: '#1e293b' }}>
+                          {new Date(s.sessionDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        </p>
+                        <p className="text-xs" style={{ color: '#3b82f6' }}>
+                          {s.startTime} – {s.endTime} with {s.trainerName}
+                        </p>
+                      </div>
+                    </div>
+                    {s.status === 'BOOKED' && (
+                      <div className="flex gap-1">
+                        <button onClick={() => requestReschedule(s.id)} className="text-xs px-2 py-1 rounded-lg hover:bg-blue-50 transition-colors" style={{ color: '#2563eb' }}>
+                          Reschedule
+                        </button>
+                        <button onClick={() => cancelSession(s.id)} className="text-xs px-2 py-1 rounded-lg hover:bg-red-50 transition-colors" style={{ color: '#dc2626' }}>
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Book Session Form */}
         {showBookForm && connections.length > 0 && (
