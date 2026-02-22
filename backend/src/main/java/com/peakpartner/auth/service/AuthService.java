@@ -37,6 +37,7 @@ public class AuthService {
                 .email(request.getEmail())
                 .phone(request.getPhone())
                 .role(request.getRole())
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .avgRating(BigDecimal.ZERO)
                 .totalReviews(0)
                 .build();
@@ -56,14 +57,13 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
-        // Find profile by email
         Profile profile = profileRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new UnauthorizedException("Invalid credentials"));
 
-        // Note: In a real app with Supabase Auth, password verification would be done via Supabase
-        // For this implementation, we're simplifying by using JWT only
+        if (!passwordEncoder.matches(request.getPassword(), profile.getPasswordHash())) {
+            throw new UnauthorizedException("Invalid credentials");
+        }
 
-        // Generate JWT token
         String token = jwtService.generateToken(profile.getId(), profile.getEmail(), profile.getRole().name());
 
         return AuthResponse.builder()

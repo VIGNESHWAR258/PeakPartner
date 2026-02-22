@@ -78,4 +78,27 @@ export const api = {
     
     return handleResponse(response);
   },
+
+  uploadFile: async (endpoint: string, file: File, fieldName: string = 'file', additionalFields?: Record<string, string>, token?: string) => {
+    const headers: HeadersInit = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const formData = new FormData();
+    formData.append(fieldName, file);
+    if (additionalFields) {
+      Object.entries(additionalFields).forEach(([key, value]) => {
+        formData.append(key, value);
+      });
+    }
+
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    return handleResponse(response);
+  },
 };

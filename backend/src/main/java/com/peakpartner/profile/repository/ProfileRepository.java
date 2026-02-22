@@ -17,7 +17,8 @@ public interface ProfileRepository extends JpaRepository<Profile, UUID> {
     
     List<Profile> findByRole(Profile.Role role);
     
-    @Query("SELECT p FROM Profile p WHERE p.role = 'TRAINER' " +
-           "AND (:specialization IS NULL OR :specialization = ANY(p.specializations))")
+    @Query(value = "SELECT * FROM profiles p WHERE p.role = 'TRAINER' " +
+           "AND (:specialization IS NULL OR :specialization = ANY(p.specializations))",
+           nativeQuery = true)
     List<Profile> findTrainersBySpecialization(@Param("specialization") String specialization);
 }

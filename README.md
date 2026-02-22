@@ -1,93 +1,77 @@
 # PeakPartner
 
-A full-stack mobile-first web application that bridges the gap between gym trainers and clients, featuring workout planning, diet management, progress tracking, and real-time communication.
+A full-stack mobile-first web application that bridges the gap between gym trainers and clients, featuring workout planning, diet management, session booking, progress tracking, and assessments.
 
 ## 🚀 Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| **Backend** | Spring Boot 3.x (Java 17+) with Maven |
-| **Frontend** | React 18+ with TypeScript + Vite |
-| **UI Framework** | Tailwind CSS + shadcn/ui components |
-| **Database** | PostgreSQL (Supabase compatible) |
-| **Real-time Chat** | Supabase Realtime |
+| **Backend** | Spring Boot 3.2.0 (Java 23) with Maven |
+| **Frontend** | React 19 with TypeScript + Vite 7.3 |
+| **UI Framework** | Tailwind CSS v4 |
+| **Database** | PostgreSQL 17+ |
+| **Migrations** | Flyway |
 | **Auth** | JWT with Spring Security |
-| **State Management** | TanStack Query (React Query) |
 | **PWA** | Service worker for installable mobile-first experience |
 
 ## ✨ Key Features
 
 ### For Trainers
-- **Client Management**: Manage multiple clients with customized programs
-- **Workout Planning**: Create detailed weekly/monthly workout plans
-- **Diet Planning**: Design comprehensive meal plans with macro tracking
-- **Availability Management**: Set recurring and one-time availability slots
-- **Progress Monitoring**: Track client progress, PRs, and compliance
-- **Session Booking**: Schedule and manage in-person or virtual sessions
-- **Real-time Chat**: Communicate with clients instantly
+- **Client Management**: Manage multiple clients with customized programs (GENERAL_FITNESS, WEIGHT_LOSS, MUSCLE_BUILDING, etc.)
+- **Workout Planning**: Create detailed workout plans with day-by-day exercises, sets, reps, and weight suggestions
+- **Diet Planning**: Design meal plans with per-meal items, macros, and calorie targets
+- **Plan Lifecycle**: Draft → Active → Completed/Cancelled with overlap detection
+- **Availability Management**: Set recurring weekly time slots for sessions
+- **Session Booking**: Schedule in-person or virtual sessions with clients
+- **Session Management**: Cancel with reason, reschedule with approval workflow
+- **Assessments**: Create multi-question assessments (text, single/multi-choice, scale) for clients
+- **Client Daily Logs**: View plan vs actual comparison for exercises and meals with compliance tracking
+- **Meal Verification**: Verify client meal photo uploads
 
 ### For Clients
-- **Trainer Discovery**: Browse and filter trainers by specialization
-- **Workout Tracking**: Log exercises with automatic PR detection
-- **Meal Logging**: Track daily meals with compliance status
-- **Progress Photos**: Upload and compare before/after photos
-- **Body Measurements**: Record and track body metrics over time
-- **Session Booking**: Book available trainer slots
-- **Review System**: Rate and review trainers
-- **Real-time Chat**: Stay connected with your trainer
+- **Trainer Discovery**: Browse and connect with trainers by specialization
+- **Plan-Based Exercise Logging**: Log exercises directly from active workout plan with pre-filled sets/reps
+- **Plan-Based Meal Logging**: Log meals from diet plan with required photo upload and compliance status
+- **Session Booking**: Book available trainer time slots
+- **Session Actions**: Request reschedule or cancel with reason
+- **Contact Trainer**: Quick call, WhatsApp, or email buttons for connected trainers
+- **Assessments**: Complete trainer-assigned assessments
+- **Profile Management**: Edit personal details, fitness goals, and contact info
 
 ## 🏗️ Project Structure
 
 ```
 PeakPartner/
-├── backend/                 # Spring Boot backend
-│   ├── src/
-│   │   ├── main/
-│   │   │   ├── java/com/peakpartner/
-│   │   │   │   ├── auth/            # Authentication & JWT
-│   │   │   │   ├── profile/         # User profiles
-│   │   │   │   ├── availability/    # Trainer availability
-│   │   │   │   ├── connection/      # Trainer-client connections
-│   │   │   │   ├── chat/            # Messaging
-│   │   │   │   ├── plan/            # Workout plans
-│   │   │   │   ├── exercise/        # Exercise logging
-│   │   │   │   ├── diet/            # Diet plans
-│   │   │   │   ├── booking/         # Session bookings
-│   │   │   │   ├── review/          # Trainer reviews
-│   │   │   │   ├── progress/        # Progress tracking
-│   │   │   │   ├── notification/    # Notifications
-│   │   │   │   ├── dashboard/       # Dashboards
-│   │   │   │   ├── config/          # Configuration
-│   │   │   │   └── common/          # Common utilities
-│   │   │   └── resources/
-│   │   │       ├── application.yml
-│   │   │       └── db/migration/    # Flyway migrations
-│   │   └── test/
+├── backend/                   # Spring Boot backend
+│   ├── src/main/java/com/peakpartner/
+│   │   ├── auth/              # Authentication (JWT, filters, login/signup)
+│   │   ├── profile/           # User profiles (TRAINER/CLIENT)
+│   │   ├── availability/      # Trainer availability slots
+│   │   ├── connection/        # Trainer-client connections
+│   │   ├── session/           # Session bookings & rescheduling
+│   │   ├── plan/              # Workout plans, diet plans, exercise & meal logs
+│   │   ├── assessment/        # Client assessments
+│   │   ├── config/            # CORS, Security, Supabase config
+│   │   └── common/            # DTOs, exception handling
+│   ├── src/main/resources/
+│   │   ├── application.yml
+│   │   └── db/migration/      # Flyway migrations (V1-V5)
 │   ├── pom.xml
 │   └── Dockerfile
 │
-├── frontend/                # React frontend
+├── frontend/                  # React frontend
 │   ├── src/
-│   │   ├── components/
-│   │   │   ├── ui/              # shadcn/ui components
-│   │   │   ├── layout/          # Layout components
-│   │   │   ├── auth/            # Auth components
-│   │   │   ├── chat/            # Chat components
-│   │   │   ├── plan/            # Plan components
-│   │   │   ├── diet/            # Diet components
-│   │   │   ├── progress/        # Progress components
-│   │   │   └── common/          # Common components
+│   │   ├── components/        # ProtectedRoute
+│   │   ├── hooks/             # useAuth
 │   │   ├── pages/
-│   │   │   ├── auth/            # Login, Signup
-│   │   │   ├── trainer/         # Trainer pages
-│   │   │   ├── client/          # Client pages
-│   │   │   ├── chat/            # Chat page
-│   │   │   └── profile/         # Profile page
-│   │   ├── hooks/               # Custom React hooks
-│   │   ├── services/            # API services
-│   │   ├── types/               # TypeScript types
-│   │   ├── utils/               # Utility functions
-│   │   └── store/               # State management
+│   │   │   ├── auth/          # LoginPage, SignUpPage
+│   │   │   ├── trainer/       # Dashboard, Connections, ClientManage, ProfileEdit
+│   │   │   └── client/        # Dashboard, Connections, DailyLog, Plans,
+│   │   │                      #   ProfileEdit, TrainerDiscovery
+│   │   ├── services/          # API client, Supabase client
+│   │   ├── types/             # TypeScript type definitions
+│   │   └── utils/             # Utility functions
+│   ├── public/                # PWA manifest & service worker
 │   ├── package.json
 │   └── Dockerfile
 │
@@ -98,11 +82,10 @@ PeakPartner/
 ## 🛠️ Setup & Installation
 
 ### Prerequisites
-- Java 17+
+- Java 23 (required for Lombok 1.18.36 compatibility — Java 25 breaks it)
 - Node.js 20+
 - Maven 3.9+
-- PostgreSQL 15+ (or Docker)
-- Supabase account (for realtime features, optional)
+- PostgreSQL 17+
 
 ### Backend Setup
 
@@ -112,20 +95,19 @@ PeakPartner/
    cd PeakPartner
    ```
 
-2. **Configure environment variables**
+2. **Create database**
    ```bash
-   cd backend
-   cp .env.example .env
-   # Edit .env with your database and Supabase credentials
+   psql -h localhost -U postgres -c "CREATE DATABASE peakpartner;"
    ```
 
 3. **Run with Maven**
    ```bash
-   mvn clean install
-   mvn spring-boot:run
+   cd backend
+   JAVA_HOME=/path/to/openjdk-23 mvn spring-boot:run \
+     -Dspring-boot.run.jvmArguments="-DDATABASE_URL=jdbc:postgresql://localhost:5432/peakpartner -DDATABASE_USERNAME=postgres -DDATABASE_PASSWORD=postgres"
    ```
 
-   The backend will be available at `http://localhost:8080`
+   The backend will be available at `http://localhost:8080` (API base path: `/api`)
 
 ### Frontend Setup
 
@@ -135,174 +117,139 @@ PeakPartner/
    npm install
    ```
 
-2. **Configure environment variables**
+2. **Run development server**
    ```bash
-   cp .env.example .env
-   # Edit .env with your API URL and Supabase credentials
-   ```
-
-3. **Run development server**
-   ```bash
-   npm run dev
+   VITE_API_URL=http://localhost:8080/api npm run dev
    ```
 
    The frontend will be available at `http://localhost:5173`
 
-### Docker Setup (Recommended)
+### Docker Setup
 
-1. **Start all services**
-   ```bash
-   docker-compose up -d
-   ```
-
-   This will start:
-   - PostgreSQL database on port 5432
-   - Backend API on port 8080
-   - Frontend app on port 5173
-
-2. **Stop services**
-   ```bash
-   docker-compose down
-   ```
+```bash
+docker-compose up -d    # Start all services
+docker-compose down     # Stop services
+```
 
 ## 📊 Database Schema
 
-The application uses PostgreSQL with Flyway migrations. Key tables include:
+PostgreSQL with Flyway migrations (V1–V5). Key tables:
 
-- **profiles**: User profiles for trainers and clients
-- **trainer_availability**: Trainer time slot management
-- **connections**: Trainer-client relationships
-- **workout_plans**: Workout plan structure
-- **exercise_logs**: Exercise tracking with PR detection
-- **diet_plans**: Meal planning with macros
-- **meal_logs**: Meal compliance tracking
-- **session_bookings**: Session scheduling
-- **trainer_reviews**: Rating and review system
-- **progress_photos**: Progress photo tracking
-- **body_measurements**: Body metric tracking
-- **notifications**: In-app notifications
+| Table | Purpose |
+|-------|---------|
+| `profiles` | User profiles for trainers and clients |
+| `connections` | Trainer-client relationships with program type |
+| `trainer_availability` | Weekly time slot management |
+| `session_bookings` | Session scheduling (in-person/virtual) |
+| `reschedule_requests` | Session reschedule approval workflow |
+| `workout_plans` | Workout plan structure with status lifecycle |
+| `plan_days` / `plan_exercises` | Day-by-day workout breakdown with exercises |
+| `exercise_logs` | Exercise tracking with PR detection |
+| `diet_plans` / `diet_plan_meals` / `diet_meal_items` | Meal planning with macros |
+| `meal_logs` | Meal compliance tracking with photo uploads |
+| `assessments` | Multi-question client assessments |
 
+PostgreSQL enum types are used for roles, statuses, and categories.
 Migrations are located in `backend/src/main/resources/db/migration/`
 
 ## 🔐 Authentication
 
-The application uses JWT-based authentication with Spring Security:
+JWT-based authentication with Spring Security:
 
-1. Users sign up with email and role (TRAINER/CLIENT)
-2. Login returns an access token
-3. Token must be included in Authorization header for protected endpoints
-4. Refresh token endpoint available for token renewal
+1. Users sign up via `POST /api/auth/signup` with role (TRAINER/CLIENT)
+2. Login via `POST /api/auth/login` returns a JWT access token
+3. Include token in `Authorization: Bearer <token>` header for protected endpoints
+4. Backend `JwtAuthFilter` validates token and sets `Profile` as authentication principal
 
-## 📡 API Documentation
-
-Once the backend is running, access the Swagger UI at:
-```
-http://localhost:8080/api/swagger-ui.html
-```
-
-### Key Endpoints
+## 📡 Key API Endpoints
 
 **Authentication**
-- `POST /api/auth/signup` - Register new user
-- `POST /api/auth/login` - User login
-- `POST /api/auth/refresh` - Refresh token
-- `POST /api/auth/logout` - Logout
+- `POST /api/auth/signup` — Register new user
+- `POST /api/auth/login` — User login
 
 **Profiles**
-- `GET /api/profiles/me` - Get current user profile
-- `PUT /api/profiles/me` - Update profile
-- `GET /api/profiles/trainers` - List trainers
+- `GET /api/profiles/me` — Get current user profile
+- `PUT /api/profiles/me` — Update profile
+- `GET /api/profiles/trainers` — List trainers (for discovery)
+
+**Connections**
+- `POST /api/connections` — Send connection request
+- `GET /api/connections` — List connections (filterable by status)
+- `PUT /api/connections/{id}/accept` — Accept connection
+
+**Sessions**
+- `POST /api/sessions` — Book a session
+- `GET /api/sessions` — List sessions
+- `GET /api/sessions/upcoming` — Next upcoming session
+- `GET /api/sessions/upcoming-list` — All upcoming sessions
+- `PUT /api/sessions/{id}/cancel` — Cancel with reason
+- `POST /api/sessions/{id}/reschedule` — Request reschedule
 
 **Workout Plans**
-- `POST /api/plans` - Create workout plan
-- `GET /api/plans` - List plans
-- `GET /api/plans/{id}` - Get plan details
-- `PUT /api/plans/{id}/activate` - Activate plan
-
-**Exercise Logs**
-- `POST /api/exercise-logs` - Log exercise
-- `GET /api/exercise-logs/prs` - Get personal records
+- `POST /api/plans/workout` — Create workout plan
+- `GET /api/plans/workout?connectionId=` — List workout plans
+- `PUT /api/plans/workout/{id}/activate` — Activate plan
 
 **Diet Plans**
-- `POST /api/diet-plans` - Create diet plan
-- `GET /api/diet-plans` - List diet plans
+- `POST /api/plans/diet` — Create diet plan
+- `GET /api/plans/diet?connectionId=` — List diet plans
+- `PUT /api/plans/diet/{id}/activate` — Activate plan
 
-**Session Bookings**
-- `POST /api/bookings` - Book session
-- `GET /api/bookings` - List bookings
+**Exercise & Meal Logs**
+- `POST /api/plans/exercise-logs` — Log exercise
+- `GET /api/plans/exercise-logs?connectionId=&date=` — Get exercise logs
+- `POST /api/plans/meal-logs` — Log meal (with photo)
+- `GET /api/plans/meal-logs?connectionId=&date=` — Get meal logs
+- `PUT /api/plans/meal-logs/{id}/verify` — Trainer verify meal
 
-*(Full API documentation available in Swagger UI)*
+**Assessments**
+- `POST /api/assessments` — Create assessment
+- `GET /api/assessments` — List assessments
+- `PUT /api/assessments/{id}/submit` — Client submit answers
+- `PUT /api/assessments/{id}/review` — Trainer review
 
 ## 🎨 UI Design
 
-The application follows a mobile-first approach with:
+Mobile-first approach with custom design system:
 
-- **Color Scheme**: Deep blue to vibrant teal gradient (primary), energetic orange (accent)
-- **Responsive Design**: Optimized for mobile, tablet, and desktop
-- **Dark Mode**: Full dark mode support
-- **Animations**: Smooth transitions and micro-interactions
-- **Components**: Card-based layouts with shadcn/ui components
-- **Navigation**: Bottom tab bar for mobile users
+- **Gradient Header**: Deep blue-to-teal gradient (`gradient-bg`)
+- **Card Layout**: Clean card-based sections (`card`)
+- **Tags**: Color-coded status tags (`tag-green`, `tag-blue`, `tag-orange`)
+- **Buttons**: Primary gradient buttons (`btn-primary`)
+- **Responsive**: Optimized for mobile screens
+- **PWA**: Installable as a mobile app
 
-## 🧪 Testing
+## 🧪 Demo Accounts
 
-### Backend Tests
-```bash
-cd backend
-mvn test
-```
-
-### Frontend Tests
-```bash
-cd frontend
-npm test
-```
+| Role | Email | Password |
+|------|-------|----------|
+| Trainer | mike@trainer.com | Trainer123! |
+| Client | sarah@client.com | Client123! |
 
 ## 🚀 Deployment
 
-### Backend Deployment
+### Backend
+```bash
+cd backend
+mvn clean package -DskipTests
+java -jar target/*.jar
+```
 
-1. Build JAR file:
-   ```bash
-   mvn clean package
-   ```
+### Frontend
+```bash
+cd frontend
+npm run build
+# Deploy dist/ to static hosting (Vercel, Netlify, etc.)
+```
 
-2. Deploy JAR to your server or cloud platform
+### Environment Variables
 
-### Frontend Deployment
-
-1. Build for production:
-   ```bash
-   npm run build
-   ```
-
-2. Deploy `dist/` folder to your static hosting service (Vercel, Netlify, etc.)
-
-### Environment Variables for Production
-
-Ensure all production environment variables are properly set:
-- Database credentials
-- JWT secret (256-bit key)
-- Supabase credentials
-- CORS allowed origins
-
-## 📝 Development Guidelines
-
-- **Backend**: Follow Spring Boot best practices, use DTOs for API responses
-- **Frontend**: Use TypeScript strictly, leverage React Query for data fetching
-- **Code Style**: Use Prettier for frontend, checkstyle for backend
-- **Commits**: Write descriptive commit messages
-- **Pull Requests**: Include tests and documentation updates
-
-## 🤝 Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL JDBC URL |
+| `DATABASE_USERNAME` | Database username |
+| `DATABASE_PASSWORD` | Database password |
+| `VITE_API_URL` | Backend API URL (frontend) |
 
 ## 📄 License
 
@@ -311,13 +258,6 @@ This project is licensed under the MIT License.
 ## 👥 Authors
 
 **VIGNESHWAR258**
-
-## 🙏 Acknowledgments
-
-- Spring Boot team for the excellent framework
-- React team for the powerful UI library
-- Supabase for real-time capabilities
-- shadcn/ui for beautiful components
 
 ---
 

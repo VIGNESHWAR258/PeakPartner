@@ -6,7 +6,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -42,15 +44,21 @@ public class Profile {
     @Column(columnDefinition = "TEXT")
     private String bio;
 
+    @Column(name = "password_hash")
+    private String passwordHash;
+
+    @JdbcTypeCode(SqlTypes.ARRAY)
     @Column(columnDefinition = "TEXT[]")
     private String[] specializations;
 
     @Column(name = "experience_years")
     private Integer experienceYears;
 
+    @JdbcTypeCode(SqlTypes.ARRAY)
     @Column(columnDefinition = "TEXT[]")
     private String[] certifications;
 
+    @JdbcTypeCode(SqlTypes.ARRAY)
     @Column(name = "fitness_goals", columnDefinition = "TEXT[]")
     private String[] fitnessGoals;
 
