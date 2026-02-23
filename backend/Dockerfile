@@ -14,11 +14,14 @@ RUN mkdir -p /app/uploads
 
 EXPOSE 8080
 
+ENV PORT=8080
+
 # JVM flags optimized for free-tier containers (limited memory ~512MB)
-ENTRYPOINT ["java", \
-  "-Xmx384m", \
-  "-Xms128m", \
-  "-XX:+UseSerialGC", \
-  "-XX:MaxRAMPercentage=75.0", \
-  "-Dserver.port=${PORT:-8080}", \
-  "-jar", "app.jar"]
+# Using shell form so $PORT is expanded from environment
+ENTRYPOINT exec java \
+  -Xmx384m \
+  -Xms128m \
+  -XX:+UseSerialGC \
+  -XX:MaxRAMPercentage=75.0 \
+  -Dserver.port=$PORT \
+  -jar app.jar
