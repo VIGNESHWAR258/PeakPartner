@@ -1,0 +1,14 @@
+# Local development profile - uses local PostgreSQL
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/peakpartner
+    username: postgres
+    password: postgres
+
+  jpa:
+    show-sql: true
+
+logging:
+  level:
+    com.peakpartner: DEBUG
+    org.springframework.security: DEBUG
