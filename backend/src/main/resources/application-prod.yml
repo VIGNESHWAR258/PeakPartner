@@ -1,26 +1,24 @@
-# Production profile - uses Supabase PostgreSQL via connection pooler
+# Production profile - uses Supabase PostgreSQL via connection pooler (session mode)
 spring:
   datasource:
     url: ${DATABASE_URL}
     username: ${DATABASE_USERNAME}
     password: ${DATABASE_PASSWORD}
     hikari:
-      maximum-pool-size: 5
+      maximum-pool-size: 3
       minimum-idle: 1
-      connection-timeout: 20000
-      idle-timeout: 300000
-      max-lifetime: 600000
+      connection-timeout: 30000
+      idle-timeout: 120000
+      max-lifetime: 300000
+      keepalive-time: 60000
+      leak-detection-threshold: 30000
+      connection-test-query: SELECT 1
 
   jpa:
     show-sql: false
     properties:
       hibernate:
         default_schema: public
-        # Required for PgBouncer transaction mode (Supabase Supavisor)
-        temp:
-          use_jdbc_metadata_defaults: false
-        jdbc:
-          batch_size: 0
 
   flyway:
     enabled: true
@@ -32,4 +30,5 @@ logging:
   level:
     com.peakpartner: INFO
     org.springframework.security: WARN
+    com.zaxxer.hikari: DEBUG
     root: WARN
