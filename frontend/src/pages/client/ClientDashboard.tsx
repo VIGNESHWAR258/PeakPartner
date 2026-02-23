@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
-import type { Profile, ApiResponse, AssessmentResponse, WorkoutPlanResponse, DietPlanResponse, SessionResponse, ConnectionResponse, RescheduleResponse } from '../../types';
+import type { Profile, AssessmentResponse, WorkoutPlanResponse, DietPlanResponse, SessionResponse, ConnectionResponse, RescheduleResponse } from '../../types';
 
 export default function ClientDashboard() {
   const navigate = useNavigate();
@@ -78,7 +78,6 @@ export default function ClientDashboard() {
         setUpcomingSession(upcomingRes.value.data);
       }
       if (todayRes.status === 'fulfilled' && todayRes.value.success) {
-        setTodaySessions(upcomingRes.value.data ? [upcomingRes.value.data] : []);
         if (Array.isArray(todayRes.value.data)) {
           setTodaySessions(todayRes.value.data);
         }

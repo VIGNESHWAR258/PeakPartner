@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
-import type { Profile, ApiResponse, SessionResponse, AssessmentResponse, ConnectionResponse, RescheduleResponse } from '../../types';
+import type { Profile, SessionResponse, AssessmentResponse, ConnectionResponse, RescheduleResponse } from '../../types';
 
 export default function TrainerDashboard() {
   const navigate = useNavigate();
