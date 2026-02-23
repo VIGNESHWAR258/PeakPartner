@@ -1,4 +1,4 @@
-# Production profile - uses Supabase PostgreSQL
+# Production profile - uses Supabase PostgreSQL via connection pooler
 spring:
   datasource:
     url: ${DATABASE_URL}
@@ -16,6 +16,11 @@ spring:
     properties:
       hibernate:
         default_schema: public
+        # Required for PgBouncer transaction mode (Supabase Supavisor)
+        temp:
+          use_jdbc_metadata_defaults: false
+        jdbc:
+          batch_size: 0
 
   flyway:
     enabled: true
