@@ -34,6 +34,10 @@ server:
   port: ${PORT:8080}
   servlet:
     context-path: /api
+  tomcat:
+    threads:
+      max: 50
+      min-spare: 5
 
 # Supabase Configuration
 supabase:

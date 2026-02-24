@@ -76,11 +76,31 @@ export default function TrainerClientManage() {
     }
   }, [user, connectionId]);
 
-  // Auto-sync: poll every 30 seconds
+  // Auto-sync: poll every 30 seconds, pause when tab hidden
   useEffect(() => {
     if (!user?.token || !connectionId) return;
-    const interval = setInterval(() => fetchData(), 30000);
-    return () => clearInterval(interval);
+    let intervalId: ReturnType<typeof setInterval>;
+
+    const startPolling = () => {
+      intervalId = setInterval(() => fetchData(), 30000);
+    };
+    const stopPolling = () => clearInterval(intervalId);
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        fetchData();
+        startPolling();
+      }
+    };
+
+    startPolling();
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [user, connectionId]);
 
   const fetchData = async () => {

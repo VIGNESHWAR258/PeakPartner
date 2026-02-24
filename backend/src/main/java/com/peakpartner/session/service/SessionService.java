@@ -14,6 +14,7 @@ import com.peakpartner.session.model.SessionBooking.SessionType;
 import com.peakpartner.session.repository.RescheduleRequestRepository;
 import com.peakpartner.session.repository.SessionBookingRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -80,7 +81,12 @@ public class SessionService {
                 .notes(request.getNotes())
                 .build();
 
-        booking = sessionBookingRepository.save(booking);
+        try {
+            booking = sessionBookingRepository.save(booking);
+        } catch (DataIntegrityViolationException e) {
+            // DB exclusion constraint caught a concurrent overlapping booking
+            throw new BadRequestException("This time slot was just booked by someone else. Please choose a different time.");
+        }
         return SessionResponse.fromEntity(booking);
     }
 
@@ -185,7 +191,11 @@ public class SessionService {
             booking.setSessionDate(rr.getProposedDate());
             booking.setStartTime(rr.getProposedStartTime());
             booking.setEndTime(rr.getProposedEndTime());
-            sessionBookingRepository.save(booking);
+            try {
+                sessionBookingRepository.save(booking);
+            } catch (DataIntegrityViolationException e) {
+                throw new BadRequestException("The proposed time slot conflicts with another booking that was just created. Please try a different time.");
+            }
 
             rr.setStatus(RescheduleStatus.ACCEPTED);
         } else {

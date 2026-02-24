@@ -10,6 +10,7 @@ import com.peakpartner.connection.repository.ConnectionRepository;
 import com.peakpartner.profile.model.Profile;
 import com.peakpartner.profile.repository.ProfileRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,7 +60,12 @@ public class ConnectionService {
                 .notes(request.getNotes())
                 .build();
 
-        connection = connectionRepository.save(connection);
+        try {
+            connection = connectionRepository.save(connection);
+        } catch (DataIntegrityViolationException e) {
+            // Partial unique index caught a concurrent duplicate connection
+            throw new BadRequestException("You already have an active or pending connection with this trainer");
+        }
         return ConnectionResponse.fromEntity(connection);
     }
 
