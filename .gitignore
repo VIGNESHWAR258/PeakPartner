@@ -2,6 +2,7 @@
 .env
 .env.local
 .env.*.local
+DEPLOYMENT_RESUME.md
 
 # OS
 .DS_Store

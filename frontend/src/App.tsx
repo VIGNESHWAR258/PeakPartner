@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { AuthProvider } from './hooks/useAuth';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './pages/auth/LoginPage';
@@ -13,8 +14,14 @@ import TrainerDiscovery from './pages/client/TrainerDiscovery';
 import ClientConnections from './pages/client/ClientConnections';
 import ClientPlans from './pages/client/ClientPlans';
 import ClientDailyLog from './pages/client/ClientDailyLog';
+import { warmUpBackend } from './services/api';
 
 function App() {
+  // Wake up the Render free-tier backend as soon as the app loads
+  useEffect(() => {
+    warmUpBackend();
+  }, []);
+
   return (
     <Router>
       <AuthProvider>
