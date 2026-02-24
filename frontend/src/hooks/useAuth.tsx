@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { api } from '../services/api';
 
 interface AuthUser {
   userId: string;
@@ -21,6 +22,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const clearAuth = useCallback(() => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('email');
+    localStorage.removeItem('role');
+    setUser(null);
+  }, []);
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     const userId = localStorage.getItem('userId');
@@ -28,15 +37,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const role = localStorage.getItem('role');
 
     if (token && userId && role) {
+      // Set user immediately from localStorage (instant)
       setUser({
         token,
         userId,
         email: email || '',
         role: role as 'TRAINER' | 'CLIENT',
       });
+      // Validate token in background — clear if expired
+      api.get('/profiles/me', token).catch((err: any) => {
+        if (err?.status === 401) {
+          clearAuth();
+        }
+        // Other errors (network) are fine — token might still be valid
+      });
     }
     setIsLoading(false);
-  }, []);
+  }, [clearAuth]);
 
   const login = (token: string, userId: string, email: string, role: string) => {
     localStorage.setItem('token', token);
@@ -52,8 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    localStorage.clear();
-    setUser(null);
+    clearAuth();
   };
 
   return (

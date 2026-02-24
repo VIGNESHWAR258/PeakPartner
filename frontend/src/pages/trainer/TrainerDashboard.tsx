@@ -1,8 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../../services/api';
+import { api, waitForBackend } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import type { Profile, SessionResponse, AssessmentResponse, ConnectionResponse, RescheduleResponse } from '../../types';
+
+// Skeleton placeholder component for progressive loading
+function Skeleton({ className = '' }: { className?: string }) {
+  return <div className={`animate-pulse bg-slate-200 rounded-lg ${className}`} />;
+}
 
 export default function TrainerDashboard() {
   const navigate = useNavigate();
@@ -28,68 +33,132 @@ export default function TrainerDashboard() {
   const [bookNotes, setBookNotes] = useState('');
   const [booking, setBooking] = useState(false);
 
+  // Abort controller for cleanup on unmount
+  const abortRef = useRef(false);
   useEffect(() => {
-    if (user?.token) {
-      fetchAll(user.token);
-    }
-  }, [user]);
+    abortRef.current = false;
+    return () => { abortRef.current = true; };
+  }, []);
 
-  // Auto-sync: poll every 30 seconds
-  useEffect(() => {
-    if (!user?.token) return;
-    const interval = setInterval(() => fetchAll(user.token), 30000);
-    return () => clearInterval(interval);
-  }, [user]);
-
-  const fetchAll = async (token: string) => {
+  // --- Progressive data fetching: each section loads independently ---
+  const fetchProfile = useCallback(async (token: string) => {
     try {
-      const [profileRes, countRes, todayRes, upcomingRes, assessRes, connRes, rescheduleRes] = await Promise.allSettled([
-        api.get('/profiles/me', token),
-        api.get('/connections/count', token),
+      const res = await api.get('/profiles/me', token);
+      if (!abortRef.current && res.success) setProfile(res.data);
+    } catch { /* silent */ }
+  }, []);
+
+  const fetchClientCount = useCallback(async (token: string) => {
+    try {
+      const res = await api.get('/connections/count', token);
+      if (!abortRef.current && res.success) setActiveClients(res.data);
+    } catch { /* silent */ }
+  }, []);
+
+  const fetchSessions = useCallback(async (token: string) => {
+    try {
+      const [todayRes, upcomingRes] = await Promise.allSettled([
         api.get('/sessions/today', token),
         api.get('/sessions/upcoming-list', token),
-        api.get('/assessments', token),
-        api.get('/connections?status=ACCEPTED', token),
-        api.get('/sessions/reschedule/pending', token),
       ]);
-
-      if (profileRes.status === 'fulfilled' && profileRes.value.success) {
-        setProfile(profileRes.value.data);
-      }
-      if (countRes.status === 'fulfilled' && countRes.value.success) {
-        setActiveClients(countRes.value.data);
-      }
+      if (abortRef.current) return;
       if (todayRes.status === 'fulfilled' && todayRes.value.success) {
         setTodaySessions(Array.isArray(todayRes.value.data) ? todayRes.value.data : []);
       }
       if (upcomingRes.status === 'fulfilled' && upcomingRes.value.success) {
         setUpcomingSessions(Array.isArray(upcomingRes.value.data) ? upcomingRes.value.data : []);
       }
-      if (assessRes.status === 'fulfilled' && assessRes.value.success) {
-        const all: AssessmentResponse[] = assessRes.value.data;
+    } catch { /* silent */ }
+  }, []);
+
+  const fetchAssessments = useCallback(async (token: string) => {
+    try {
+      const res = await api.get('/assessments', token);
+      if (!abortRef.current && res.success) {
+        const all: AssessmentResponse[] = res.data;
         setPendingReviews(all.filter(a => a.status === 'SUBMITTED'));
       }
-      if (connRes.status === 'fulfilled' && connRes.value.success) {
-        setConnections(connRes.value.data);
-        if (connRes.value.data.length > 0 && !bookConnectionId) {
-          setBookConnectionId(connRes.value.data[0].id);
+    } catch { /* silent */ }
+  }, []);
+
+  const fetchConnections = useCallback(async (token: string) => {
+    try {
+      const res = await api.get('/connections?status=ACCEPTED', token);
+      if (!abortRef.current && res.success) {
+        setConnections(res.data);
+        if (res.data.length > 0) {
+          setBookConnectionId(prev => prev || res.data[0].id);
         }
       }
-      if (rescheduleRes.status === 'fulfilled' && rescheduleRes.value.success) {
-        setPendingReschedules(Array.isArray(rescheduleRes.value.data) ? rescheduleRes.value.data : []);
+    } catch { /* silent */ }
+  }, []);
+
+  const fetchReschedules = useCallback(async (token: string) => {
+    try {
+      const res = await api.get('/sessions/reschedule/pending', token);
+      if (!abortRef.current && res.success) {
+        setPendingReschedules(Array.isArray(res.data) ? res.data : []);
       }
-    } catch (error) {
-      console.error('Dashboard fetch error:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    } catch { /* silent */ }
+  }, []);
+
+  const fetchAll = useCallback(async (token: string) => {
+    // Fire all independently — each updates its section as it resolves
+    await Promise.allSettled([
+      fetchProfile(token),
+      fetchClientCount(token),
+      fetchSessions(token),
+      fetchAssessments(token),
+      fetchConnections(token),
+      fetchReschedules(token),
+    ]);
+    if (!abortRef.current) setLoading(false);
+  }, [fetchProfile, fetchClientCount, fetchSessions, fetchAssessments, fetchConnections, fetchReschedules]);
+
+  // Initial load: wait for backend warm-up, then fetch
+  useEffect(() => {
+    if (!user?.token) return;
+    let cancelled = false;
+    (async () => {
+      await waitForBackend();
+      if (!cancelled) fetchAll(user.token);
+    })();
+    return () => { cancelled = true; };
+  }, [user, fetchAll]);
+
+  // Polling: 30s interval, pauses when tab is hidden
+  useEffect(() => {
+    if (!user?.token) return;
+    let intervalId: ReturnType<typeof setInterval>;
+
+    const startPolling = () => {
+      intervalId = setInterval(() => fetchAll(user.token), 30000);
+    };
+    const stopPolling = () => clearInterval(intervalId);
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        fetchAll(user.token); // immediate refresh on tab focus
+        startPolling();
+      }
+    };
+
+    startPolling();
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [user, fetchAll]);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
+  // --- Granular mutation re-fetches ---
   const bookSession = async () => {
     if (!user?.token || !bookConnectionId) return;
     setBooking(true);
@@ -105,7 +174,7 @@ export default function TrainerDashboard() {
       if (res.success) {
         setShowBookForm(false);
         setBookNotes('');
-        fetchAll(user.token);
+        fetchSessions(user.token); // only re-fetch sessions
       }
     } catch (err: any) {
       alert(err.message || 'Failed to book session');
@@ -118,7 +187,7 @@ export default function TrainerDashboard() {
     if (!user?.token) return;
     try {
       await api.put(`/sessions/${sessionId}/complete`, {}, user.token);
-      fetchAll(user.token);
+      fetchSessions(user.token);
     } catch (err: any) {
       alert(err.message || 'Failed to complete');
     }
@@ -129,7 +198,7 @@ export default function TrainerDashboard() {
     const reason = prompt('Reason for cancellation (optional):') || '';
     try {
       await api.put(`/sessions/${sessionId}/cancel`, { reason }, user.token);
-      fetchAll(user.token);
+      fetchSessions(user.token);
     } catch (err: any) {
       alert(err.message || 'Failed to cancel');
     }
@@ -153,7 +222,8 @@ export default function TrainerDashboard() {
         reason,
       }, user.token);
       alert('Reschedule request sent! Waiting for confirmation.');
-      fetchAll(user.token);
+      fetchReschedules(user.token);
+      fetchSessions(user.token);
     } catch (err: any) {
       alert(err.message || 'Failed to request reschedule');
     }
@@ -163,7 +233,8 @@ export default function TrainerDashboard() {
     if (!user?.token) return;
     try {
       await api.put(`/sessions/reschedule/${rescheduleId}/accept`, {}, user.token);
-      fetchAll(user.token);
+      fetchReschedules(user.token);
+      fetchSessions(user.token);
     } catch (err: any) {
       alert(err.message || 'Failed to accept reschedule');
     }
@@ -173,16 +244,53 @@ export default function TrainerDashboard() {
     if (!user?.token) return;
     try {
       await api.put(`/sessions/reschedule/${rescheduleId}/decline`, {}, user.token);
-      fetchAll(user.token);
+      fetchReschedules(user.token);
     } catch (err: any) {
       alert(err.message || 'Failed to decline reschedule');
     }
   };
 
+  // --- Progressive skeleton UI instead of full-page spinner ---
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center page-bg">
-        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      <div className="page-bg">
+        <header className="gradient-bg text-white sticky top-0 z-50">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-5 flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center text-lg font-bold">T</div>
+              <div>
+                <Skeleton className="h-5 w-40 !bg-white/20" />
+                <Skeleton className="h-3 w-24 mt-1 !bg-white/15" />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-9 w-16 !bg-white/15 rounded-xl" />
+              <Skeleton className="h-9 w-20 !bg-white/15 rounded-xl" />
+            </div>
+          </div>
+        </header>
+        <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+          <div className="grid grid-cols-3 gap-3">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="card p-4">
+                <Skeleton className="w-9 h-9 mb-2.5" />
+                <Skeleton className="h-7 w-10" />
+                <Skeleton className="h-3 w-20 mt-1" />
+              </div>
+            ))}
+          </div>
+          <div className="card p-5 space-y-3">
+            <Skeleton className="h-5 w-36" />
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
+          </div>
+          <div className="card p-5 space-y-3">
+            <Skeleton className="h-5 w-28" />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-20" />)}
+            </div>
+          </div>
+        </main>
       </div>
     );
   }

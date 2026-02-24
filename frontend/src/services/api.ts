@@ -3,9 +3,16 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api'
 // --- Retry config for Render free-tier cold starts (~30-60s spin-up) ---
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY_MS = 2000; // 2s, then 4s, then 8s
+const REQUEST_TIMEOUT_MS = 20000; // 20s safety net per attempt
 
 async function handleResponse(response: Response) {
   if (!response.ok) {
+    // 401 = expired/invalid token
+    if (response.status === 401) {
+      const err = new Error('Session expired. Please log in again.');
+      (err as any).status = 401;
+      throw err;
+    }
     const error = await response.json().catch(() => ({ message: 'An error occurred' }));
     throw new Error(error.message || `HTTP ${response.status}: ${response.statusText}`);
   }
@@ -15,6 +22,7 @@ async function handleResponse(response: Response) {
 /**
  * Retries a fetch call with exponential backoff when it fails due to
  * network errors (service spinning up) or 502/503/504 gateway errors.
+ * Includes an AbortController timeout to prevent hanging requests.
  */
 async function fetchWithRetry(
   url: string,
@@ -22,8 +30,12 @@ async function fetchWithRetry(
   retriesLeft: number = MAX_RETRIES,
   delay: number = INITIAL_RETRY_DELAY_MS
 ): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
   try {
-    const response = await fetch(url, options);
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timeoutId);
     // Retry on gateway errors (Render returns these while spinning up)
     if ((response.status === 502 || response.status === 503 || response.status === 504) && retriesLeft > 0) {
       await new Promise((r) => setTimeout(r, delay));
@@ -31,7 +43,8 @@ async function fetchWithRetry(
     }
     return response;
   } catch (error) {
-    // Network error (service completely down / spinning up)
+    clearTimeout(timeoutId);
+    // Network error or timeout (service completely down / spinning up)
     if (retriesLeft > 0) {
       await new Promise((r) => setTimeout(r, delay));
       return fetchWithRetry(url, options, retriesLeft - 1, delay * 2);
@@ -40,14 +53,40 @@ async function fetchWithRetry(
   }
 }
 
+// --- Backend warm-up with readiness tracking ---
+let _backendReady: Promise<void> | null = null;
+
 /**
- * Warm up the backend on app load so it's ready by the time the user interacts.
- * Fires a lightweight GET and ignores the result.
+ * Warm up the backend on app load. Returns a promise that resolves
+ * once the backend is confirmed reachable (or after max attempts).
+ * Subsequent dashboards can await this before firing their API calls.
  */
-export function warmUpBackend() {
-  fetch(`${API_BASE_URL}/api-docs`, { method: 'GET' }).catch(() => {
-    // Silently ignore — this is just a wake-up ping
-  });
+export function warmUpBackend(): Promise<void> {
+  if (_backendReady) return _backendReady;
+  _backendReady = (async () => {
+    for (let i = 0; i < 3; i++) {
+      try {
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 15000);
+        const res = await fetch(`${API_BASE_URL}/api-docs`, {
+          method: 'GET',
+          signal: controller.signal,
+        });
+        clearTimeout(tid);
+        if (res.ok || res.status < 500) return; // backend is up
+      } catch {
+        // wait before retry
+        if (i < 2) await new Promise((r) => setTimeout(r, 3000));
+      }
+    }
+    // Give up silently — fetchWithRetry will handle per-request retries
+  })();
+  return _backendReady;
+}
+
+/** Wait for backend to be ready (non-blocking if already warm) */
+export function waitForBackend(): Promise<void> {
+  return _backendReady || Promise.resolve();
 }
 
 export const api = {
