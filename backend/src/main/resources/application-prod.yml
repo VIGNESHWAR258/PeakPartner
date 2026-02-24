@@ -1,18 +1,29 @@
-# Production profile - uses Supabase PostgreSQL via connection pooler (session mode)
+# Production profile - uses Supabase PostgreSQL via connection pooler
 spring:
   datasource:
+    # Use TRANSACTION mode (port 6543) for the app — more reliable through poolers
     url: ${DATABASE_URL}
     username: ${DATABASE_USERNAME}
     password: ${DATABASE_PASSWORD}
     hikari:
       maximum-pool-size: 3
       minimum-idle: 1
-      connection-timeout: 30000
+      # Generous timeouts for free-tier cold starts (Supabase DB can take 60s+ to wake)
+      connection-timeout: 120000
       idle-timeout: 120000
       max-lifetime: 300000
       keepalive-time: 60000
-      leak-detection-threshold: 30000
+      leak-detection-threshold: 60000
       connection-test-query: SELECT 1
+      # Allow app to start even if DB is temporarily unreachable; retries in background
+      initialization-fail-timeout: -1
+      # JDBC driver-level timeouts (seconds)
+      data-source-properties:
+        connectTimeout: 120
+        socketTimeout: 120
+        loginTimeout: 120
+        tcpKeepAlive: true
+        sslmode: require
 
   jpa:
     show-sql: false
@@ -25,10 +36,18 @@ spring:
     baseline-on-migrate: true
     locations: classpath:db/migration
     default-schema: public
+    # Use SESSION mode (port 5432) for Flyway — required for DDL/migration
+    url: ${FLYWAY_URL:${DATABASE_URL}}
+    user: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+    # Retry Flyway migration if DB isn't ready yet
+    connect-retries: 5
+    connect-retries-interval: 10
 
 logging:
   level:
     com.peakpartner: INFO
     org.springframework.security: WARN
     com.zaxxer.hikari: DEBUG
+    org.flywaydb: INFO
     root: WARN
